@@ -23,15 +23,33 @@ changes database rows directly.
 From the disposable project's root:
 
 ```bash
-make deps
+# Install the Python dependencies pinned in uv.lock.
+uv sync --frozen
+# Copy the defaults, then set the tutorial database URL, port, and Compose project.
 cp .env.example .env
 cat >> .env <<'EOF'
 DATABASE_URL=postgresql+psycopg://bastion:bastion@127.0.0.1:55432/bastion
 POSTGRES_PORT=55432
 COMPOSE_PROJECT_NAME=aits-tutorial
 EOF
+# Start the tutorial PostgreSQL container and publish its configured port.
 docker compose run --rm -d --name aits-tutorial-postgres --service-ports --use-aliases postgres
 ```
+
+If Docker on Windows says binding `55432` is forbidden, check for a TCP port
+exclusion even if `netstat` shows no listener. In PowerShell, run:
+
+```powershell
+# List the IPv4 TCP port ranges that Windows has excluded.
+netsh interface ipv4 show excludedportrange protocol=tcp
+```
+
+If `55432` is excluded, choose a free host port outside those ranges, such as
+`15432` if it is available. In `.env`, update both `POSTGRES_PORT` and the port
+in `DATABASE_URL`, then rerun the Docker Compose command. PostgreSQL still
+listens on `5432` inside the container. If Docker reports a name conflict and
+the earlier attempt left a stopped container, remove it with
+`docker rm aits-tutorial-postgres` before retrying.
 
 Wait for PostgreSQL to accept connections:
 
@@ -42,10 +60,47 @@ done
 uv run --frozen fastapi dev
 ```
 
-Leave the server running. In a second terminal, from the same project root:
+Leave the server running. Open a second terminal in the same project root to
+generate the Python client. On Linux or macOS with GNU Make installed, run:
 
 ```bash
+# Refresh the OpenAPI spec and generate the Python client used by ledger.py.
 make regen
+```
+
+In Git Bash on Windows, use the block below. Git Bash can rewrite the
+generator's `/local/...` arguments to `C:/Program Files/Git/local/...`, which
+causes a missing configuration file error inside the Linux container.
+`pwd -W` supplies a Windows path for the host mount, and
+`MSYS2_ARG_CONV_EXCL='*'` preserves the container paths for the Docker command.
+
+```bash
+(
+  set -e
+  # Prepare the output directory and adapt the checkout's OpenAPI spec for the generator.
+  mkdir -p clients/python
+  cp clients/build/.openapi-generator-ignore clients/python/
+  uv run --frozen python clients/build/shim_openapi.py \
+    openapi.json clients/build/openapi.client.json
+
+  # Generate the client with the repository mounted at /local in the container.
+  MSYS2_ARG_CONV_EXCL='*' docker run --rm \
+    --mount "type=bind,source=$(pwd -W),target=/local" \
+    openapitools/openapi-generator-cli:v7.10.0 generate \
+    -i /local/clients/build/openapi.client.json \
+    -g python \
+    -o /local/clients/python \
+    -c /local/clients/build/openapi-generator-config.json
+
+  # Add the package metadata and licenses, then remove the generator-only spec.
+  cp clients/build/pyproject.toml LICENSE NOTICE clients/python/
+  rm clients/build/openapi.client.json
+)
+```
+
+After client generation succeeds, check that the API and database are ready:
+
+```bash
 curl -s http://127.0.0.1:8000/health
 curl -s http://127.0.0.1:8000/ready
 ```
@@ -53,16 +108,8 @@ curl -s http://127.0.0.1:8000/ready
 The checks return `{"status":"ok"}` and `{"status":"ready"}`.
 This setup accepts unauthenticated requests for local learning.
 
-Save the Python blocks below in `ledger.py`. After each numbered step through
-Step 6, run the accumulated script:
-
-```bash
-uv run --frozen --with ./clients/python python ledger.py
-```
-
-Each run registers a new agent. Configuration and artifact records can be
-shared through deduplication; the new agent starts with no activation, so
-`expected_head=None` remains valid. Printed CIDs and UUIDs vary between runs.
+Continue to **The scenario** to create `ledger.py`. You'll first run it after
+adding the registration block in Step 1.
 
 ## The scenario
 
@@ -71,8 +118,8 @@ invoice `INV-1007`. We will record sample configuration, input, and output
 without calling an LLM. Verification will show whether stored contents match
 their recorded CIDs and observations.
 
-We'll build that record one object at a time. Create a file called `ledger.py`
-and add each block as we go.
+We'll build that record one object at a time. Create `ledger.py` in the project
+root and add each block as we go.
 
 Start with the imports and a client:
 
@@ -80,24 +127,26 @@ Start with the imports and a client:
 """ledger.py — record and verify one agent's work in AITS."""
 
 from aits_client import (
-    ApiClient,
-    Configuration,
-    AgentsApi,
-    ConfigsApi,
-    ArtifactsApi,
-    DutsApi,
-    LineageApi,
-    AuditApi,
-    AgentCreate,
-    ConfigCreate,
-    ActivationCreate,
-    DUTCreate,
-    LineageRootCreate,
-    LineageNodeCreate,
+    ApiClient,  # Shared HTTP client that sends requests to AITS.
+    Configuration,  # Client settings, including the server's base URL.
+    AgentsApi,  # Endpoints for registering and looking up agents.
+    ConfigsApi,  # Endpoints for storing and activating agent configurations.
+    ArtifactsApi,  # Endpoints for uploading artifacts and retrieving their hash records.
+    DutsApi,  # Endpoints for recording and retrieving individual inference calls.
+    LineageApi,  # Endpoints for creating and reading lineage graphs.
+    AuditApi,  # Endpoints for verification, full audits, and commit-log queries.
+    AgentCreate,  # Request model for registering an agent with a display name.
+    ConfigCreate,  # Request model for recording a prompt, model settings, and tools.
+    ActivationCreate,  # Request model for selecting an agent's active configuration.
+    DUTCreate,  # Request model for recording one inference call and its links.
+    LineageRootCreate,  # Request model for starting a lineage graph.
+    LineageNodeCreate,  # Request model for adding a work node to an existing lineage graph.
 )
 
+# Point the shared HTTP client at the local AITS server.
 client = ApiClient(Configuration(host="http://127.0.0.1:8000"))
 
+# Give each group of endpoints the same HTTP client.
 agents = AgentsApi(client)
 configs = ConfigsApi(client)
 artifacts = ArtifactsApi(client)
@@ -115,12 +164,29 @@ Register the agent. Its genesis CID anchors later records; its display name
 is stored outside the hash.
 
 ```python
+# Register the invoice extractor and print its genesis CID and agent UUID.
 agent = agents.register(AgentCreate(name="invoice-extractor"))
 print("agent     ", agent.cid, agent.uuid)
 ```
 
-Run `ledger.py`. You should see `agent` followed by a 64-character CID and
-a UUID. Keep adding to the same file.
+Save `ledger.py` with both the client setup and registration blocks. Run this
+command from the project root now and after each step through Step 6:
+
+```bash
+# Run the accumulated script with the locally generated AITS client.
+uv run --frozen --with ./clients/python python ledger.py
+```
+
+If Python reports `can't open file` for `ledger.py`, check that you saved it
+in the project root and are running the command from that directory. If
+`py ledger.py` raises `ModuleNotFoundError: No module named 'aits_client'`,
+use the command above so `uv` includes the generated client.
+
+You should see `agent` followed by a 64-character CID and a UUID. Keep adding
+to the same file. Each run registers a new agent. Configuration and artifact
+records can be shared through deduplication. The new agent starts with no
+activation, so `expected_head=None` remains valid. Printed CIDs and UUIDs vary
+between runs.
 
 ## Step 2 — Record its configuration
 
@@ -129,6 +195,7 @@ the agent. A configuration has no agent link, so agents using identical
 settings share one configuration record.
 
 ```python
+# Store the extraction prompt and model settings, then print the configuration CID.
 cfg = configs.create(
     ConfigCreate(
         system_prompt="Extract line items from invoices as JSON.",
@@ -143,6 +210,7 @@ print("config    ", cfg.cid)
 Activate the recorded configuration for this agent:
 
 ```python
+# Activate this configuration for the new agent, which has no prior activation.
 activation = configs.activate(
     agent.uuid,
     ActivationCreate(config_cid=cfg.cid, expected_head=None),
@@ -160,6 +228,7 @@ Hash the sample invoice and retain its hash record as an `Artifact`. AITS
 does not retain the uploaded bytes:
 
 ```python
+# Upload sample invoice bytes for hashing and print the artifact CID and SHA-256.
 invoice = b"INV-1007\nWidget x4 @ 2.50\nGadget x1 @ 9.99\n"
 artifact = artifacts.upload(invoice)
 print("artifact  ", artifact.cid, "sha256:", artifact.sha256)
@@ -175,6 +244,7 @@ A `DataUniqueTag` (DUT) records a single call. Create one with the sample input
 and output, linked to the agent, configuration, and artifact:
 
 ```python
+# Record the sample inference and link it to the agent, configuration, and invoice artifact.
 dut = duts.create(
     DUTCreate(
         agent_uuid=agent.uuid,
@@ -201,6 +271,7 @@ node names its predecessor(s) in `prev` and the DUT it produced — and those
 links are folded into the node's own CID.
 
 ```python
+# Create the starting node of the invoice extraction lineage.
 root = lineage.create_root(
     LineageRootCreate(
         actor_id="invoice-extractor",
@@ -208,6 +279,7 @@ root = lineage.create_root(
         transformation="root",
     )
 )
+# Add the extraction step and link it to the root and the recorded inference.
 step = lineage.create_lineage_node(
     root.cid,
     LineageNodeCreate(
@@ -233,6 +305,7 @@ too, all the way down. Verifying the lineage step therefore *is* verifying
 the DUT, the config, the agent genesis, and the artifact beneath it:
 
 ```python
+# Verify the step and its links, audit the ledger, and count observations for this DUT.
 print()
 print("step valid:  ", audit.verify(step.node.cid).valid)
 print("full audit:  ", audit.full_audit().valid)
@@ -247,6 +320,7 @@ clock, outside the node CID and inside the commit-entry hash.
 Run the whole script:
 
 ```bash
+# Run the accumulated tutorial script with the locally generated AITS client.
 uv run --frozen --with ./clients/python python ledger.py
 ```
 
@@ -275,7 +349,7 @@ design — so we'll go around it and change the stored output directly in
 Postgres, the way a botched migration or a bad actor with database access
 might.
 
-Use the `dut` CID from your run:
+Use the `dut` CID from your run and within the CLI run this:
 
 ```bash
 docker exec aits-tutorial-postgres psql -U bastion -d bastion -c \
@@ -318,17 +392,19 @@ Create `forge.py`:
 """forge.py — move a tampered DUT to its recomputed CID, the way an attacker
 with database access would. Its hash matches, but its observation is missing."""
 
-import sys
+import sys  # Provides access to the DUT CID passed on the command line.
 
-from sqlmodel import Session
+from sqlmodel import Session  # Opens a database session for reading and updating rows.
 
-from app.dag import compute_cid
-from app.db import engine
-from app.models import DataUniqueTag
-from app.nodes import to_node
+from app.dag import compute_cid  # Computes a CID from canonical node content and links.
+from app.db import engine  # Provides connections to the database configured for the local AITS app.
+from app.models import DataUniqueTag  # Maps a stored inference record to its database row.
+from app.nodes import to_node  # Converts a database row to canonical node content and links.
 
+# Decode the original CID into the bytes used as the row's database key.
 old_cid = bytes.fromhex(sys.argv[1])
 
+# Recompute and store the CID from the modified row, then print it for verification.
 with Session(engine) as session:
     dut = session.get(DataUniqueTag, old_cid)
     content, links = to_node(dut)        # assembled from the tampered contents
