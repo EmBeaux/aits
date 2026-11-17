@@ -77,6 +77,21 @@
       "typeVersion": 1,
       "position": [1060, 0],
       "parameters": {}
+    },
+    {
+      "id": "d8287aea-050a-40b9-9835-c193ebac2ef0",
+      "name": "Open Ledger Dashboard",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        -280
+      ],
+      "parameters": {
+        "content": "## Ledger Dashboard\n[Open live ledger](http://localhost:5678/webhook/ledger)\n\nBrowse recorded runs and run Ledger audit. Connect with your AITS service key.",
+        "width": 350,
+        "height": 200
+      }
     }
   ],
   "connections": {

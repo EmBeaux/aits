@@ -17,6 +17,7 @@ Methods below belong to the generated Python SDK's `LineageApi`.
 | `GET /lineage/nodes/{lt_cid}/` | `get_lineage_node(lt_cid)` | `LineageRead` |
 | `GET /lineage/{root_cid}/` | `get_lineage_graph(root_cid)` | `LineageGraphRead` |
 | `GET /lineage/` | `list_roots()` | List of `LineageGraphSummary`; optional `limit`, default 100 |
+| `GET /lineage/runs/` | `list_runs()` | Filtered run summaries with a result count and pagination cursor |
 | `GET /lineage/nodes/{lt_cid}/watermark/` | `watermark(lt_cid)` | Node CID and rendered watermark |
 | `GET /lineage/nodes/{lt_cid}/traceback/` | `trace_back(lt_cid)` | Contributing DUTs with agent/config attribution, ordered by event time |
 
@@ -81,6 +82,31 @@ Traceback follows both `prev` and `derived_from` and collects attached DUTs.
 `last_occurred_at`, and `frontier`. Times are the minimum and maximum node
 event times. Summaries sort by latest event time descending, then root CID
 descending to break ties.
+
+### Run search
+
+`GET /lineage/runs/` filters the full ledger before returning a page. Use
+`started_from` (inclusive) and `started_before` (exclusive) with timezone-aware
+timestamps. Both compare against the root step's event time. The default sort,
+`started`, uses that time. `sort=activity` uses the latest step event time. Both
+sort newest first and break ties by descending root CID.
+
+- `q` searches the root CID, root step ID, actor, workflow name or ID, n8n
+  execution label, and business keys on attached calls.
+- `workflow` and `business_key` search those fields specifically. Text searches
+  match substrings without regard to case.
+- `decision` matches a recorded policy outcome, such as `review`. Use
+  `has_decision=false` to find runs without a recorded policy decision.
+
+The response contains `runs`, `total` matching runs, and `next_cursor`. Pass
+`next_cursor` as `after` with the same filters and sort to read the next page.
+`limit` defaults to 24 and accepts 1 through 100. Use `include_run=true` on
+`GET /lineage/{root_cid}/` to include the same summary in a graph response.
+
+Run summaries derive names from n8n root records and decisions from steps with
+`policy-v<number>:<outcome>:<reason>` as their transformation. A run can have
+multiple decisions. These are workflow outcomes. Record verification is a
+separate read.
 
 ## CID validation and errors
 

@@ -74,7 +74,13 @@ class AitsLedger {
     inputs: ['main'],
     outputs: ['main'],
     credentials: [{ name: 'aitsApi', required: false }],
-    properties: [],
+    properties: [{
+      displayName: 'Dashboard URL',
+      name: 'dashboardUrl',
+      type: 'string',
+      default: 'http://localhost:5678/webhook/ledger',
+      description: 'Production webhook URL for the Ledger Dashboard workflow',
+    }],
   };
 
   async execute() {
@@ -120,14 +126,16 @@ class AitsLedger {
       tools: [{ name: 'Fixture lookup', description: fixture.description, code: fixture.jsCode }],
     };
 
-    const workflowId = this.getWorkflow().id;
+    const { id: workflowId, name: workflowName } = this.getWorkflow();
     const executionId = this.getExecutionId();
     const executionKey = `n8n:${workflowId}:${executionId}`;
     const { request, origin } = await ledgerClient(this);
     const agent = await findOrRegisterAgent(request, origin, `n8n:${workflowId}:triage-agent`);
     const { config_cid: configCid } = await request(`/agents/${agent.uuid}/config/`, 'PUT', config);
+    const workflowLabel = workflowName?.trim().slice(0, 2000);
     const root = await request('/lineage/', 'POST', {
-      actor_id: 'n8n', step_id: executionKey, transformation: 'workflow_execution', occurred_at: triggerTime,
+      actor_id: 'n8n', step_id: executionKey, occurred_at: triggerTime,
+      transformation: workflowLabel ? `workflow_execution:${workflowLabel}` : 'workflow_execution',
     });
     const nodePath = `/lineage/${root.cid}/nodes/`;
     const addStep = (previous, stepId, transformation, occurredAt, dut) => request(nodePath, 'POST', {
@@ -155,6 +163,7 @@ class AitsLedger {
         ledger: {
           workflowId, executionId, configCid, dutCid: modelStep.dut.cid,
           rootCid: root.cid, decisionCid: terminal.node.cid, verified: true,
+          dashboardUrl: `${this.getNodeParameter('dashboardUrl', 0, 'http://localhost:5678/webhook/ledger').split('#')[0]}#root/${root.cid}`,
         },
       },
       pairedItem: { item: 0 },

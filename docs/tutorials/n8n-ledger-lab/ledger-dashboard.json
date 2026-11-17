@@ -1,0 +1,102 @@
+{
+  "id": "aitsLedgerDashboard",
+  "name": "Ledger Dashboard",
+  "nodes": [
+    {
+      "id": "fd810d26-eaef-405f-9992-5aa77fe3c232",
+      "name": "Open ledger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "5a884dd8-03ff-4305-8f64-a66ab0bdafa1",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "ledger",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "35de5535-c486-41dc-8789-a9b643b2cbd2",
+      "name": "Read dashboard HTML",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "/home/node/.n8n-files/ledger-dashboard/index.html",
+        "options": {
+          "mimeType": "text/html",
+          "dataPropertyName": "data"
+        }
+      }
+    },
+    {
+      "id": "9e648cc8-25b9-4148-9ef9-6947bea4862e",
+      "name": "Serve dashboard",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "respondWith": "binary",
+        "responseDataSource": "set",
+        "inputFieldName": "data",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "Content-Disposition",
+                "value": "inline"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Open ledger": {
+      "main": [
+        [
+          {
+            "node": "Read dashboard HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read dashboard HTML": {
+      "main": [
+        [
+          {
+            "node": "Serve dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

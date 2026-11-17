@@ -781,6 +781,17 @@
             "description": "CID of the root LT that identifies this graph",
             "title": "Root",
             "type": "string"
+          },
+          "run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Included when include_run is true"
           }
         },
         "required": [
@@ -1046,6 +1057,169 @@
           "transformation"
         ],
         "title": "LineageRootCreate",
+        "type": "object"
+      },
+      "RecordedDecision": {
+        "properties": {
+          "cid": {
+            "title": "Cid",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "cid",
+          "outcome",
+          "reason"
+        ],
+        "title": "RecordedDecision",
+        "type": "object"
+      },
+      "RunPage": {
+        "properties": {
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RunSummary"
+            },
+            "title": "Runs",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runs",
+          "total",
+          "next_cursor"
+        ],
+        "title": "RunPage",
+        "type": "object"
+      },
+      "RunSummary": {
+        "properties": {
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "business_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Business Keys",
+            "type": "array"
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/RecordedDecision"
+            },
+            "title": "Decisions",
+            "type": "array"
+          },
+          "execution_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Id"
+          },
+          "last_occurred_at": {
+            "description": "Latest step event time in the run",
+            "format": "date-time",
+            "title": "Last Occurred At",
+            "type": "string"
+          },
+          "nodes": {
+            "title": "Nodes",
+            "type": "integer"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          },
+          "root_step_id": {
+            "title": "Root Step Id",
+            "type": "string"
+          },
+          "span_count": {
+            "description": "Number of distinct attached DUT records",
+            "title": "Span Count",
+            "type": "integer"
+          },
+          "started_at": {
+            "description": "Event time of the root lineage step",
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "workflow_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Id"
+          },
+          "workflow_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Name"
+          }
+        },
+        "required": [
+          "root",
+          "root_step_id",
+          "actor_id",
+          "workflow_id",
+          "workflow_name",
+          "execution_id",
+          "started_at",
+          "last_occurred_at",
+          "nodes",
+          "span_count",
+          "business_keys",
+          "decisions"
+        ],
+        "title": "RunSummary",
         "type": "object"
       },
       "TracebackStep": {
@@ -2638,6 +2812,188 @@
         ]
       }
     },
+    "/lineage/runs/": {
+      "get": {
+        "description": "Search recorded runs across the ledger before paging through the matches.",
+        "operationId": "lineage_list_runs",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 2048,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workflow",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 2048,
+              "title": "Workflow",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "business_key",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 2048,
+              "title": "Business Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "decision",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 2048,
+              "title": "Decision",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has_decision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has Decision"
+            }
+          },
+          {
+            "description": "Inclusive start bound",
+            "in": "query",
+            "name": "started_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Inclusive start bound",
+              "title": "Started From"
+            }
+          },
+          {
+            "description": "Exclusive start bound",
+            "in": "query",
+            "name": "started_before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exclusive start bound",
+              "title": "Started Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "started",
+              "enum": [
+                "started",
+                "activity"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Previous page's cursor",
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 140,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Previous page's cursor",
+              "title": "After"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Runs",
+        "tags": [
+          "lineage"
+        ]
+      }
+    },
     "/lineage/{root_cid}/": {
       "get": {
         "operationId": "lineage_get_lineage_graph",
@@ -2649,6 +3005,16 @@
             "schema": {
               "title": "Root Cid",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Run",
+              "type": "boolean"
             }
           }
         ],

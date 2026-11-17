@@ -1,9 +1,9 @@
 export const cardWidth = 166;
 export const cardHeight = 64;
 export const dutHeight = 46;
-export const columnWidth = 218;
+const columnWidth = 218;
 
-export function layoutBoard(nodes) {
+export const layoutBoard = (nodes) => {
   const levels = new Map();
   const lanesByLevel = new Map();
   const steps = nodes.map((node) => {
@@ -23,12 +23,16 @@ export function layoutBoard(nodes) {
   });
   const minY = steps.reduce((minimum, step) => Math.min(minimum, step.y), 0);
   for (const step of steps) step.y -= minY;
-  const edges = steps.flatMap((target) => target.node.prev.flatMap((id) => {
-    const source = levels.get(id);
-    return source ? [{ source, target }] : [];
-  }));
+  const edges = steps.flatMap((target) =>
+    target.node.prev.flatMap((id) => {
+      const source = levels.get(id);
+      return source ? [{ source, target }] : [];
+    }),
+  );
   const width = steps.reduce((maximum, step) => Math.max(maximum, step.x + cardWidth), cardWidth);
-  const height = steps.reduce((maximum, step) => Math.max(maximum, step.y + (step.node.dut ? 136 : cardHeight)), cardHeight);
-  const columns = [...lanesByLevel.keys()].sort((left, right) => left - right);
-  return { steps, edges, width, height, columns };
-}
+  const height = steps.reduce(
+    (maximum, step) => Math.max(maximum, step.y + (step.node.dut ? 136 : cardHeight)),
+    cardHeight,
+  );
+  return { steps, edges, width, height };
+};

@@ -12,6 +12,7 @@ variables through `--env-file` or Compose `env_file`.
 | `DATABASE_URL` | `postgresql+psycopg://bastion:bastion@127.0.0.1:5432/bastion` | SQLAlchemy connection URL |
 | `AUTH_SERVICE_KEYS` | Empty | Comma-separated `name:secret` pairs |
 | `AUTH_DISABLED` | `false` | Enables unauthenticated local mode when true |
+| `CORS_ORIGINS` | `[]` | JSON array of browser origins permitted for GET requests with Authorization headers. Local files and sandboxed n8n HTML use `null`. |
 | `COMMIT_LOCK_TIMEOUT_MS` | `5000` | Positive PostgreSQL commit-lock wait limit; timeout returns 503 and `Retry-After: 1` |
 | `OCCURRED_AT_MAX_SKEW_SECONDS` | `300` | Nonnegative permitted future event-time skew; exceeding it returns 400; past times are accepted |
 | `MAX_REQUEST_BYTES` | `67108864` | Positive body limit, including chunked requests and multipart uploads; exceeding it returns 413 |

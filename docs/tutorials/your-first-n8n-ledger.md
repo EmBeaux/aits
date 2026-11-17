@@ -58,6 +58,8 @@ Use the included synthetic issue because the ledger stores the model input and o
 
 ## View the ledger in n8n
 
+For the React dashboard served from a published n8n webhook, follow the [dashboard playbook](n8n-dashboard-playbook.md). It provides a run browser, lineage view, and full ledger audit at `/webhook/ledger`. The [trace mapping note](n8n-trace-mapping.md) explains how this workflow's execution and model call become ledger records.
+
 Create a second workflow with **Manual Trigger → HTTP Request**. This workflow reads existing ledger entries without running the triage agent.
 
 1. Set **Method** to **GET** and **URL** to `http://host.docker.internal:8000/lineage/`.

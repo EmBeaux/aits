@@ -32,6 +32,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://bastion:bastion@postgres:5432/bastion
       AUTH_DISABLED: 'false'
+      CORS_ORIGINS: '["http://localhost:5678","http://localhost:5679","null"]'
     command:
       - /bin/sh
       - -ec
@@ -68,6 +69,7 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
       - ./custom:/opt/aits-nodes:ro
+      - ../../../tools/ledger-dashboard/dist:/home/node/.n8n-files/ledger-dashboard:ro
       - ledger_key:/run/ledger:ro
 
 volumes:
