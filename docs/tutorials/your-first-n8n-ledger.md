@@ -23,9 +23,10 @@ inside the containers. From the checkout root, run:
 docker compose -f docs/tutorials/n8n-ledger-lab/compose.yaml up --build -d --wait
 ```
 
-Open [n8n](http://localhost:5679), create your owner account, and select your OpenAI
-credential in **Triage model** in the imported **Issue triage ledger demo** workflow.
-Execute the workflow, then open [Ledger Explorer](http://localhost:5679/webhook/ledger).
+Install [Ollama](https://ollama.com/download) and run `ollama pull granite4.2:3b` first.
+Open [n8n](http://localhost:5679), create your owner account, and open the imported
+**Issue triage ledger demo** workflow. **Triage model** already points at your local
+Ollama, so no API key is needed. Execute the workflow, then open [Ledger Explorer](http://localhost:5679/webhook/ledger).
 The custom node, AITS credential, and published dashboard are configured automatically.
 
 For lab configuration, updates, and stop commands, continue to
@@ -54,9 +55,10 @@ available from the vendors. [Git](https://git-scm.com/downloads),
 [Node.js](https://nodejs.org/en/download),
 [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
-You also need an OpenAI API key with access to the model selected in **Triage model**.
-The workflow import selects `gpt-4.1-mini`. Executing triage makes a model request using
-your OpenAI account.
+You also need a model for **Triage model**. The default is a free local model:
+install [Ollama](https://ollama.com/download) and run `ollama pull granite4.2:3b`.
+No API key or paid account is needed. To use Claude or OpenAI instead, see
+[Choose the triage model](#choose-the-triage-model).
 
 Obtain the AITS source checkout or source archive containing this tutorial. The
 development branch used for this work is `bat1-22_custom-n8n-aits-node`. The repository
@@ -369,8 +371,10 @@ Manual Trigger → Prepare issue → Triage agent → Check proposal → Record 
 
 1. Open **Record AITS Ledger** and select the **AITS API** credential saved in section 6.
 2. Set the recorder's **Dashboard URL** to `http://localhost:5678/webhook/ledger`.
-3. Open **Triage model**, create or select an OpenAI credential, and enter your OpenAI
-   API key. Select the fixed model `gpt-4.1-mini`, or a text model your account can access.
+3. Open **Triage model** and attach a model credential. For Ollama, create an
+   **Ollama** credential with base URL `http://host.docker.internal:11434` and select
+   `granite4.2:3b`. For OpenAI or Anthropic, replace the node with that provider's chat
+   model node and enter your API key.
 4. Save the workflow, clear any pinned execution data, and click **Execute workflow** to
    run the full path from **Manual Trigger**.
 
@@ -535,7 +539,7 @@ dependencies above. Remote review needs reachable hosted URLs.
 
 Use this path for the grant demo, onboarding, or trying AITS with minimal setup. It
 automates the installation and configuration covered by manual steps 1–7. You only
-need to create your n8n owner account and configure OpenAI once, as described below.
+need to create your n8n owner account once. The triage model defaults to local Ollama.
 For frequent changes to AITS Python code, the
 [manual development setup](#manual-development-setup) lets you reload the local service
 without rebuilding its image.
@@ -562,15 +566,29 @@ workflow imports, service-key entry, or host Python/Node.js installation is need
 | n8n calling AITS inside Docker | `http://aits:8000` |
 
 On your first visit to n8n, create the local owner account. Open **Issue triage ledger
-demo**, select an OpenAI credential in **Triage model**, save, and execute the workflow.
-The supplied model is `gpt-4.1-mini`; model execution uses your OpenAI account. Follow
+demo** and execute the workflow. **Triage model** uses local Ollama with
+`granite4.2:3b` by default, so the run costs nothing and needs no key. Follow
 section 8 to inspect the recorded run, verify records, and run the ledger audit. The
 dashboard starts with an empty live ledger until a run has been recorded.
 
-To configure OpenAI before the first startup, optionally create
-`docs/tutorials/n8n-ledger-lab/.env` using the supplied `.env.example`, and set
-`OPENAI_API_KEY`. The bootstrap then creates and selects the OpenAI credential. Otherwise,
-configure it in the n8n editor. After initialization, edit saved credentials in n8n.
+### Choose the triage model
+
+Set `MODEL_PROVIDER` in `docs/tutorials/n8n-ledger-lab/.env` before the first startup.
+The bootstrap swaps the **Triage model** node and creates its credential.
+
+| `MODEL_PROVIDER` | Also set | Default model |
+| --- | --- | --- |
+| `ollama` (default) | nothing; optional `OLLAMA_MODEL`, `OLLAMA_BASE_URL` | `granite4.2:3b` |
+| `anthropic` | `ANTHROPIC_API_KEY`; optional `ANTHROPIC_MODEL` | `claude-haiku-5-5` |
+| `openai` | `OPENAI_API_KEY`; optional `OPENAI_MODEL` | `gpt-4.1-mini` |
+
+The recorder expects exactly one model call per run. Some small local models call the
+demo's **Fixture lookup** tool or wrap the JSON in code fences, which breaks that shape.
+In testing on 2026-11-18, `granite4.2:3b` returned clean JSON 3 of 3 times;
+`qwen3.5:4b`, `qwen2.5-coder:3b` and `phi4-mini` did not. The model choice is saved
+when the lab first starts. To change it, run
+`docker compose -f docs/tutorials/n8n-ledger-lab/compose.yaml down -v`, which also
+deletes the lab ledger, then start the lab again.
 
 The same optional `.env` supports `N8N_HOST_PORT` (default `5679`), `AITS_HOST_PORT`
 (default `8001`), and `AITS_SOURCE` for another source checkout. These defaults allow
@@ -609,7 +627,8 @@ docker compose -f docs/tutorials/n8n-ledger-lab/compose.yaml stop
 | AITS returns HTTP 401 | Enter the secret portion of `name:secret` from the running AITS configuration. The all-in-one lab generates its own key. |
 | Unknown custom node or missing AITS API credential type | Verify both JavaScript files in the custom folder, restart n8n, and refresh the editor. For the lab, rerun the startup command to rebuild its image. |
 | Recorder requests the full workflow | Clear pinned data and execute from Manual Trigger. Keep the supplied node names and the single text model-call shape. |
-| Model request fails | Check the OpenAI credential, account access, quota, and selected model in Triage model. |
+| Model request fails | For Ollama, confirm `ollama list` shows the model and Ollama is running. For Anthropic or OpenAI, check the key, quota, and selected model in Triage model. |
+| Recorder says "Expected one executed run of Triage model" | The model called the demo tool. Use `granite4.2:3b` or a hosted model. |
 | Dashboard URL returns 404 | Publish Ledger Dashboard and check its webhook path `ledger`. Use the production URL. |
 | File error or webhook returns 500 | Inspect the serving workflow execution, built HTML, file node container path, and allowlist. Recopy the file after container recreation. |
 | Browser downloads the dashboard | Respond with binary field `data`, Content-Type `text/html; charset=utf-8`, and Content-Disposition `inline`. |

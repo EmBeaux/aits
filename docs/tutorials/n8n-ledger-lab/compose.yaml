@@ -68,12 +68,20 @@ services:
       AITS_URL: http://aits:8000
       AITS_KEY_FILE: /run/ledger/key
       AITS_DASHBOARD_URL: http://localhost:${N8N_HOST_PORT:-5679}/webhook/ledger
+      MODEL_PROVIDER: ${MODEL_PROVIDER:-ollama}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-granite4.2:3b}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-5-5}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
       EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: 'true'
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
     depends_on:
       aits:
         condition: service_healthy
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     ports:
       - '127.0.0.1:${N8N_HOST_PORT:-5679}:5678'
     volumes:

@@ -12,7 +12,52 @@ const temporaryDirectory = mkdtempSync(join(tmpdir(), 'aits-lab-'));
 const serverUrl = process.env.AITS_URL || 'http://aits:8000';
 const dashboardUrl = process.env.AITS_DASHBOARD_URL || 'http://localhost:5679/webhook/ledger';
 const aitsCredential = { id: 'aitsLabApi', name: 'AITS lab' };
-const modelCredential = { id: 'aitsLabOpenAi', name: 'OpenAI lab' };
+// MODEL_PROVIDER picks the Triage model: ollama (default, no API key), anthropic, or openai.
+const provider = (process.env.MODEL_PROVIDER || 'ollama').trim().toLowerCase();
+const providers = {
+  openai: {
+    credential: { id: 'aitsLabOpenAi', name: 'OpenAI lab' },
+    credentialType: 'openAiApi',
+    data: process.env.OPENAI_API_KEY ? { apiKey: process.env.OPENAI_API_KEY } : null,
+    node: {
+      type: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
+      typeVersion: 1.3,
+      parameters: {
+        model: { __rl: true, mode: 'id', value: process.env.OPENAI_MODEL || 'gpt-4.1-mini' },
+        options: {},
+      },
+    },
+  },
+  anthropic: {
+    credential: { id: 'aitsLabAnthropic', name: 'Anthropic lab' },
+    credentialType: 'anthropicApi',
+    data: process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : null,
+    node: {
+      type: '@n8n/n8n-nodes-langchain.lmChatAnthropic',
+      typeVersion: 1.3,
+      parameters: {
+        model: { __rl: true, mode: 'id', value: process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5' },
+        options: {},
+      },
+    },
+  },
+  ollama: {
+    credential: { id: 'aitsLabOllama', name: 'Ollama lab' },
+    credentialType: 'ollamaApi',
+    // Ollama needs no key, so the credential is always created.
+    data: { baseUrl: process.env.OLLAMA_BASE_URL || 'http://host.docker.internal:11434' },
+    node: {
+      type: '@n8n/n8n-nodes-langchain.lmChatOllama',
+      typeVersion: 1,
+      parameters: { model: process.env.OLLAMA_MODEL || 'granite4.2:3b', options: {} },
+    },
+  },
+};
+const model = providers[provider];
+if (!model) {
+  throw new Error(`Unknown MODEL_PROVIDER "${provider}". Use openai, anthropic, or ollama.`);
+}
+const modelCredential = model.credential;
 
 const run = (...args) => execFileSync('n8n', args, { stdio: 'inherit' });
 
@@ -51,11 +96,11 @@ try {
       data: { serverUrl, serviceKey },
     }];
 
-    if (!state.ready && process.env.OPENAI_API_KEY) {
+    if (!state.ready && model.data) {
       credentials.push({
         ...modelCredential,
-        type: 'openAiApi',
-        data: { apiKey: process.env.OPENAI_API_KEY },
+        type: model.credentialType,
+        data: model.data,
       });
     }
 
@@ -81,8 +126,9 @@ try {
         node.credentials = { aitsApi: aitsCredential };
         node.parameters.dashboardUrl = dashboardUrl;
       }
-      if (node.name === 'Triage model' && process.env.OPENAI_API_KEY) {
-        node.credentials = { openAiApi: modelCredential };
+      if (node.name === 'Triage model') {
+        Object.assign(node, structuredClone(model.node));
+        if (model.data) node.credentials = { [model.credentialType]: modelCredential };
       }
       if (node.name === 'Open Ledger Dashboard') {
         node.parameters.content = [
