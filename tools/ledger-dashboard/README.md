@@ -29,6 +29,40 @@ To check the production bundle locally, run `npm run build` and then `npm run pr
 
 ## Serve from n8n
 
-`npm run build` produces one self-contained `dist/index.html`, including the JavaScript, CSS, and fonts. Production builds call the API origin configured by `AITS_API_URL` at build time. The default is `http://127.0.0.1:8000`. Rebuild to change that origin. The service key is entered through **Connect AITS** and stays in the tab's memory.
+For the complete Docker lab, run this from the checkout root:
 
-The [n8n dashboard playbook](../../docs/tutorials/n8n-dashboard-playbook.md) covers the serving workflow, local CORS settings, deployment commands, and verification. The dashboard opens with sample data until you connect.
+```shell
+docker compose -f docs/tutorials/n8n-ledger-lab/compose.yaml up --build -d --wait
+```
+
+Docker builds the HTML, installs the custom node, imports the workflows, configures the
+shared AITS credential, and publishes the dashboard at
+[localhost:5679/webhook/ledger](http://localhost:5679/webhook/ledger). The
+[lab guide](../../docs/tutorials/your-first-n8n-ledger.md#run-the-all-in-one-docker-lab)
+covers the first n8n account setup and OpenAI credential. Re-run the command after source
+changes to rebuild the dashboard and custom-node image; saved workflow edits persist.
+
+For an existing n8n installation, follow the manual build and connection steps below.
+
+`npm run build` produces one self-contained `dist/index.html`, including the JavaScript,
+CSS, and fonts. Standalone and preview builds call the API origin configured by
+`AITS_API_URL` at build time. The default is `http://127.0.0.1:8000`. Rebuild to change
+that origin. In those modes, enter the service key through **Connect AITS**.
+
+At the production n8n webhook URL, the dashboard automatically loads live data through
+`/webhook/ledger-api`. In **Ledger Dashboard**, select the saved **AITS API** credential
+on **Read AITS** and set that node's URL to the AITS server origin followed by
+`$json.query.path`. n8n attaches the service key on the server. The HTML contains no
+service key.
+
+The workflow uses native IF nodes for path validation, with an individual condition for
+each allowed endpoint. Edit those conditions in **Allowed ledger read** in the n8n editor.
+Invalid paths receive HTTP 404 from **Reject ledger read**.
+
+The dashboard webhooks provide read access to visitors who can reach them. The API
+webhook permits the dashboard's GET endpoints and returns no-store responses. Configure
+access to these webhooks for the intended audience when hosting them.
+
+Development, preview, and standalone-file modes retain the **Connect AITS** dialog.
+The [n8n setup guide](../../docs/tutorials/your-first-n8n-ledger.md) covers setup
+and verification.

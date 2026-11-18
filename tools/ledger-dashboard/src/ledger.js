@@ -2,6 +2,12 @@ export const isCid = (value) => /^[a-f0-9]{64}$/i.test(value ?? '');
 export const shortCid = (value) => `${value.slice(0, 8)}…${value.slice(-6)}`;
 
 const apiBase = import.meta.env.DEV ? '/api/aits' : __AITS_API_URL__.replace(/\/$/, '');
+const webhookBase =
+  !import.meta.env.DEV && typeof location !== 'undefined'
+    ? location.pathname.match(/^(.*\/webhook)\/ledger\/?$/)?.[1]
+    : null;
+
+export const automaticConnection = Boolean(webhookBase);
 
 const paths = {
   runs: (query) => `/lineage/runs/?${query}`,
@@ -16,10 +22,17 @@ const paths = {
 };
 
 export const readLedger = async (kind, id, key, signal) => {
+  const path = paths[kind](id);
+  const serverConnection = automaticConnection && key === null;
+  const url = serverConnection
+    ? new URL(`${webhookBase}/ledger-api`, location.origin)
+    : new URL(`${apiBase}${path}`, location.href);
+  if (serverConnection) url.searchParams.set('path', path);
+
   let response;
   try {
-    response = await fetch(`${apiBase}${paths[kind](id)}`, {
-      headers: { Authorization: `Bearer ${key}` },
+    response = await fetch(url, {
+      headers: serverConnection ? {} : { Authorization: `Bearer ${key}` },
       cache: 'no-store',
       redirect: 'error',
       signal,
@@ -31,8 +44,13 @@ export const readLedger = async (kind, id, key, signal) => {
       { cause: error },
     );
   }
-  if (response.status === 401)
-    throw new Error('AITS rejected the service key. Check it and reconnect.');
+  if (response.status === 401) {
+    throw new Error(
+      serverConnection
+        ? 'AITS rejected the saved server credential. Update the AITS API credential in n8n.'
+        : 'AITS rejected the service key. Check it and reconnect.',
+    );
+  }
   const data = response.headers.get('content-type')?.includes('application/json')
     ? await response.json()
     : null;

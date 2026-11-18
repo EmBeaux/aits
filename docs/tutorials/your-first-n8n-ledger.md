@@ -2,13 +2,49 @@
 
 Set up AITS, PostgreSQL, and n8n, run the supplied issue-triage workflow, and inspect its
 recorded model call and decision in Ledger Explorer. A second n8n workflow serves the
-React dashboard at a published webhook URL.
+React dashboard at a published webhook URL. Opening that page loads live data
+automatically through the AITS credential saved in n8n, including after a page reload.
 
-The walkthrough supports Windows and macOS with Docker Desktop. PostgreSQL and n8n run
-in Docker, and AITS runs from the checkout on your computer. An all-in-one Docker setup
-is included at the end.
+## Choose a setup
 
-## Before you start
+Both paths provide the same issue-triage demo and Ledger Explorer on Windows and macOS.
+**Choose one setup path. You do not need to complete the manual setup after starting
+the Docker lab.**
+
+| Setup path | Best for | What you manage |
+| --- | --- | --- |
+| **One-command Docker lab (recommended)** | Grant demos, onboarding, and trying AITS | Docker builds and connects the services, installs the custom node, configures the AITS credential, imports the workflows, and publishes the dashboard. |
+| **Manual development setup** | Learning how the components connect, developing AITS, and troubleshooting individual services | Install local development tools, run AITS on your computer, and configure the Docker services, custom node, dashboard, credentials, and workflows individually. |
+
+The lab requires Docker Desktop and this source checkout; Python, uv, and Node.js run
+inside the containers. From the checkout root, run:
+
+```shell
+docker compose -f docs/tutorials/n8n-ledger-lab/compose.yaml up --build -d --wait
+```
+
+Open [n8n](http://localhost:5679), create your owner account, and select your OpenAI
+credential in **Triage model** in the imported **Issue triage ledger demo** workflow.
+Execute the workflow, then open [Ledger Explorer](http://localhost:5679/webhook/ledger).
+The custom node, AITS credential, and published dashboard are configured automatically.
+
+For lab configuration, updates, and stop commands, continue to
+[Run the all-in-one Docker lab](#run-the-all-in-one-docker-lab). After recording a run,
+use [section 8](#8-inspect-the-new-run-and-audit-the-ledger) to inspect and verify it.
+
+## Manual development setup
+
+Follow the prerequisites and steps 1–7 below if you want to set up each component
+yourself. AITS runs on your computer, while PostgreSQL and n8n run in Docker. Running
+AITS locally lets you edit its Python code and reload the service without rebuilding
+a Docker image. The individual setup steps also show where each connection and
+credential is configured.
+
+This path uses separate ports and data from the Docker lab. If you chose the lab,
+skip these installation and configuration steps; section 8's inspection and audit
+instructions apply to either setup.
+
+### Before you start
 
 Install Git, Docker Desktop, Node.js 22.12+ with npm, and uv. On Windows, configure Docker
 Desktop for Linux containers. Start Docker Desktop before running these commands.
@@ -57,7 +93,8 @@ so use that version for this walkthrough and recheck recording when upgrading n8
 | --- | --- |
 | Browser opening n8n | `http://localhost:5678` |
 | Browser opening Ledger Explorer | `http://localhost:5678/webhook/ledger` |
-| Browser or host process calling AITS | `http://127.0.0.1:8000` |
+| Webhook dashboard reading live data through n8n | `http://localhost:5678/webhook/ledger-api` |
+| Host process or standalone dashboard calling AITS | `http://127.0.0.1:8000` |
 | n8n container calling host-run AITS | `http://host.docker.internal:8000` |
 | Host-run AITS connecting to PostgreSQL | `127.0.0.1:15432` |
 
@@ -75,8 +112,8 @@ uv python install 3.13
 uv sync --frozen
 ```
 
-Generate a service key and keep the result for the AITS configuration, n8n credential,
-and dashboard connection.
+Generate a service key and keep the result for the AITS configuration and saved n8n
+credential. The webhook dashboard uses that credential automatically.
 
 ```shell
 uv run --frozen python -c "import secrets; print(secrets.token_hex(32))"
@@ -97,14 +134,17 @@ AUTH_SERVICE_KEYS=n8n-tutorial:replace-with-your-generated-key
 CORS_ORIGINS=["http://localhost:5678","http://127.0.0.1:5678","null"]
 ```
 
-The service-key value has the form `name:secret`. Enter only the `secret` portion in n8n
-and the dashboard. AITS loads `.env`, then `.env.local`, with shell environment variables
-taking precedence. The settings above explicitly enable service authentication.
+The service-key value has the form `name:secret`. Enter the `secret` portion once in
+the n8n credential configured in section 6. With multiple entries in `AUTH_SERVICE_KEYS`,
+choose the secret for the intended n8n caller. AITS loads `.env`, then `.env.local`, with
+shell environment variables taking precedence. The settings above explicitly enable
+service authentication.
 
-`CORS_ORIGINS` permits the dashboard's browser requests. Local files and n8n's sandboxed
-HTML can send the origin `null`, so that value is included alongside the local n8n
-origins. The dashboard sends its service key on each API read. Restart AITS after
-configuration changes. [Configuration and authentication](../reference/configuration.md).
+`CORS_ORIGINS` supports browser-to-AITS requests from standalone and preview dashboard
+modes. Local files can send the origin `null`, so that value is included alongside the
+local origins. The production webhook dashboard sends reads to n8n, which authenticates
+its requests to AITS with the saved credential. Restart AITS after configuration changes.
+[Configuration and authentication](../reference/configuration.md).
 
 ## 2. Start PostgreSQL, then AITS
 
@@ -253,17 +293,28 @@ is `/home/node/.n8n-files`. If your existing instance has a custom file allowlis
 the dashboard directory in it. The file reader uses the Linux container path above.
 [Read/Write Files from Disk](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.readwritefile/).
 
-The API origin is embedded at build time. The service key is entered when connecting in
-the browser. A production build or `npm run preview` calls that API origin directly.
+The API origin is embedded for standalone and preview connections. At the production
+webhook URL, the dashboard automatically uses n8n's credential-backed read route.
 
 ## 6. Import and publish the dashboard workflow
 
 1. Create a new workflow in n8n and choose **Import from File**.
 2. Select `docs/tutorials/n8n-ledger-lab/ledger-dashboard.json` from your checkout.
-3. Save the imported **Ledger Dashboard** workflow.
+3. Open **Read AITS** and create or select an **AITS API** credential. Set its **Server
+   URL** to `http://host.docker.internal:8000` and **Service Key** to the secret from
+   section 1. The **Read AITS** node's URL expression also uses this origin, followed
+   by `$json.query.path`. Save the credential and workflow.
 4. Publish it using **Publish**. Versions with an **Active** toggle use that toggle to
    enable the production webhook.
 5. Open the production dashboard URL in a fresh browser tab.
+
+For the primary setup, the **Read AITS** URL expression is shown below. Configure it
+once along with the selected credential. The expression appends the validated ledger
+path to the server origin.
+
+```text
+={{ 'http://host.docker.internal:8000' + $json.query.path }}
+```
 
 [Ledger Dashboard](http://localhost:5678/webhook/ledger).
 
@@ -274,18 +325,36 @@ The imported workflow contains these nodes and settings.
 | Open ledger | Webhook, GET, path `ledger`, respond using the Respond to Webhook node |
 | Read dashboard HTML | Read/Write Files from Disk, read `/home/node/.n8n-files/ledger-dashboard/index.html`, binary field `data`, MIME type `text/html` |
 | Serve dashboard | Respond to Webhook, binary file from field `data`, `Content-Type: text/html; charset=utf-8`, `Content-Disposition: inline`, `Cache-Control: no-store` |
+| Open ledger API | GET webhook at `ledger-api`, responding through Respond ledger data |
+| Validate ledger read | IF node checking the request path's format |
+| Allowed ledger read | IF node with one visible condition for each permitted ledger endpoint |
+| Read AITS | GET the validated path with the saved AITS API credential |
+| Respond ledger data | Return the API JSON and status, with no-store caching and the sandbox CORS origin |
+| Reject ledger read | Return HTTP 404 when either path check fails |
+
+Both validation nodes use n8n's built-in IF conditions. Open **Allowed ledger read** to
+view or edit the permitted endpoints individually. Paths containing a CID use a
+64-character hexadecimal match. The workflow JSON stores these conditions directly.
 
 The production URL uses `/webhook/ledger`. The `/webhook-test/ledger` URL works while the
 editor is listening for a test. Publishing enables the production URL independently of
-an editor execution.
+an editor execution. Use the production URL for automatic live-data connections.
 
-The page initially shows **Sample ledger**. Click **Connect AITS**, enter your service
-key, and click **Connect**. Look for **Connected to AITS**. A fresh ledger shows an empty
-run list until you execute triage. The key stays in the tab's memory and is entered
-again after a reload or in a fresh tab.
+The webhook page automatically shows live runs and **Connected to AITS**, including
+after a reload or in a fresh tab. A fresh ledger has an empty run list until you execute
+triage. Once the n8n credential is configured, opening the dashboard requires no key
+entry. The service key stays in n8n's saved credential and is attached to AITS requests
+on the server.
 
-n8n sandboxes webhook HTML. The configured absolute API URL and CORS settings allow the
-dashboard to load its data in that environment.
+The browser requests `/webhook/ledger-api`, which permits the dashboard's ledger GET
+endpoints. Unsupported paths and write requests are rejected. The response contains the
+requested ledger data, and the served HTML contains no service key.
+
+These dashboard webhooks grant read access to visitors who can reach them. Configure
+their access for the intended audience when hosting them.
+
+n8n sandboxes webhook HTML. The dashboard uses an absolute URL for its read-only n8n
+API webhook, whose response permits the sandbox origin.
 [Respond to Webhook](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.respondtowebhook/).
 
 ## 7. Import, configure, and execute the triage workflow
@@ -298,13 +367,11 @@ sub-nodes attached to **Triage agent**. The main path is shown below.
 Manual Trigger → Prepare issue → Triage agent → Check proposal → Record AITS Ledger
 ```
 
-1. Open **Record AITS Ledger** and create an **AITS API** credential.
-2. Set **Server URL** to `http://host.docker.internal:8000`.
-3. Set **Service Key** to the secret generated in section 1, and save the credential.
-4. Set the recorder's **Dashboard URL** to `http://localhost:5678/webhook/ledger`.
-5. Open **Triage model**, create or select an OpenAI credential, and enter your OpenAI
+1. Open **Record AITS Ledger** and select the **AITS API** credential saved in section 6.
+2. Set the recorder's **Dashboard URL** to `http://localhost:5678/webhook/ledger`.
+3. Open **Triage model**, create or select an OpenAI credential, and enter your OpenAI
    API key. Select the fixed model `gpt-4.1-mini`, or a text model your account can access.
-6. Save the workflow, clear any pinned execution data, and click **Execute workflow** to
+4. Save the workflow, clear any pinned execution data, and click **Execute workflow** to
    run the full path from **Manual Trigger**.
 
 The import includes an **Open Ledger Dashboard** Sticky Note with the production URL.
@@ -340,7 +407,7 @@ is reported by `verified` and the full audit.
 ## 8. Inspect the new run and audit the ledger
 
 1. Copy `ledger.dashboardUrl` from the recorder output and open it in a fresh tab.
-2. Click **Connect AITS** and enter the same service key.
+2. Confirm live data loads automatically through the saved server connection.
 3. Confirm the selected run's execution ID matches the n8n output.
 4. Follow **Run started**, **Prepare issue**, **Triage agent**, **Triage model**, and
    **Check proposal**. Open the model call to inspect **Output**, **Input**, and
@@ -417,7 +484,7 @@ docker exec n8n mkdir -p /home/node/.n8n-files/ledger-dashboard
 docker cp tools/ledger-dashboard/dist/index.html n8n:/home/node/.n8n-files/ledger-dashboard/index.html
 ```
 
-Reload the dashboard and reconnect. The serving workflow reads the copied HTML on each
+Reload the dashboard. The webhook reconnects automatically. The workflow reads HTML on each
 request. For the primary `docker run` setup, the dashboard directory lives in the
 container's writable layer. Repeat the copy when recreating that container. The custom
 directory resides in the persistent n8n volume.
@@ -433,6 +500,14 @@ docker stop n8n
 docker compose --env-file .env.local -p aits-tutorial stop postgres
 ```
 
+### Rotate the AITS service key
+
+The saved n8n credential contains a copy of the secret configured in `AUTH_SERVICE_KEYS`.
+When rotating that key, update `AUTH_SERVICE_KEYS`, restart AITS, and update **Service
+Key** in the saved **AITS API** credential. Both **Read AITS** and **Record AITS Ledger**
+use that saved credential. Reload the dashboard to verify that live runs load again.
+Future page loads use the updated server connection automatically.
+
 ## Dashboard development and other API hosts
 
 For a dashboard development session, run `npm run dev` from `tools/ledger-dashboard`.
@@ -445,81 +520,83 @@ The single HTML build also contains the assets needed for opening `dist/index.ht
 directly in a browser. Connect with the service key. The `null` CORS origin supports API
 reads from that file context.
 
-To use another API host, change `AITS_API_URL` in the dashboard's `.env.local`, rebuild,
-and copy the HTML. Use an HTTP(S) origin without a path or embedded credentials. Set
-the n8n credential's **Server URL** to an address n8n can reach, and configure the API's
-CORS allowlist for the dashboard origin and sandbox origin.
+For the automatic webhook connection, update **Read AITS** to use the new API origin
+and its saved AITS credential. The URL expression appends `$json.query.path` to that origin.
+For standalone, preview, or development connections, change `AITS_API_URL` in the
+dashboard's `.env.local`, rebuild, and copy the HTML. Use an HTTP(S) origin without a
+path or embedded credentials and configure browser-to-AITS CORS for those modes.
 
-When sharing with another person, both the dashboard URL and AITS API URL need to be
-reachable from their computer. A `localhost` URL points to the computer opening it. The
-local setup can be reproduced on another computer given the source, credentials, and
+When sharing the webhook dashboard, its URL must be reachable from the other person's
+computer, and n8n must be able to reach AITS. A `localhost` URL points to the computer
+opening it. The local setup can be reproduced given the source, credentials, and
 dependencies above. Remote review needs reachable hosted URLs.
 
 ## Run the all-in-one Docker lab
 
-The lab Compose file builds AITS from source, creates PostgreSQL, generates an AITS
-service key, and mounts the custom nodes and built dashboard into n8n. Build the HTML
-first from the checkout root.
+Use this path for the grant demo, onboarding, or trying AITS with minimal setup. It
+automates the installation and configuration covered by manual steps 1–7. You only
+need to create your n8n owner account and configure OpenAI once, as described below.
+For frequent changes to AITS Python code, the
+[manual development setup](#manual-development-setup) lets you reload the local service
+without rebuilding its image.
+
+Install and start Docker Desktop, using Linux containers on Windows. Obtain this source
+checkout, then open PowerShell on Windows or Terminal on macOS in its root directory.
+Run one command:
 
 ```shell
-cd tools/ledger-dashboard
-npm ci
-npm run build
-cd ../../docs/tutorials/n8n-ledger-lab
+docker compose -f docs/tutorials/n8n-ledger-lab/compose.yaml up --build -d --wait
 ```
 
-Use the dashboard configuration from section 5 so browser API requests target
-`http://127.0.0.1:8000`. The lab's AITS service needs a published host port for the browser.
-Create `compose.browser.yaml` in the lab directory with this content. It also selects
-the n8n version used in the verified local walkthrough.
+The first build downloads images and npm dependencies. Compose waits for AITS and n8n
+readiness. It builds the dashboard inside Docker, installs the custom node and credential
+type, generates a shared AITS key, saves the AITS credential in n8n, imports both
+workflows, and publishes **Ledger Dashboard** before starting n8n. No manual file copying,
+workflow imports, service-key entry, or host Python/Node.js installation is needed.
 
-```yaml
-services:
-  aits:
-    ports:
-      - '127.0.0.1:8000:8000'
-  n8n:
-    image: docker.n8n.io/n8nio/n8n:2.47.5
-```
+| Service | Lab address |
+| --- | --- |
+| n8n editor | `http://localhost:5679` |
+| Automatically connected Ledger Explorer | `http://localhost:5679/webhook/ledger` |
+| AITS readiness | `http://localhost:8001/ready` |
+| n8n calling AITS inside Docker | `http://aits:8000` |
 
-If another n8n instance uses port 5678, create or edit the lab's `.env` and set
-`N8N_HOST_PORT=5679`. The supplied CORS settings include both localhost ports. Stop
-host-run AITS before using the lab's port 8000, then start the lab from this directory.
+On your first visit to n8n, create the local owner account. Open **Issue triage ledger
+demo**, select an OpenAI credential in **Triage model**, save, and execute the workflow.
+The supplied model is `gpt-4.1-mini`; model execution uses your OpenAI account. Follow
+section 8 to inspect the recorded run, verify records, and run the ledger audit. The
+dashboard starts with an empty live ledger until a run has been recorded.
+
+To configure OpenAI before the first startup, optionally create
+`docs/tutorials/n8n-ledger-lab/.env` using the supplied `.env.example`, and set
+`OPENAI_API_KEY`. The bootstrap then creates and selects the OpenAI credential. Otherwise,
+configure it in the n8n editor. After initialization, edit saved credentials in n8n.
+
+The same optional `.env` supports `N8N_HOST_PORT` (default `5679`), `AITS_HOST_PORT`
+(default `8001`), and `AITS_SOURCE` for another source checkout. These defaults allow
+the lab to run beside the manual setup. Only loopback ports are published; PostgreSQL
+stays on the internal network. The dashboard proxies read requests through n8n using
+the saved credential, and anyone who can reach its webhooks can read the ledger.
+If you change the n8n port after initialization, also update **Dashboard URL** and the
+Sticky Note link in your saved triage workflow.
+
+The `aits-ledger-lab` Compose project has separate PostgreSQL, n8n, and service-key
+volumes. Re-running the startup command preserves records, accounts, credentials, and
+workflow edits. Bootstrap imports missing workflows and publishes the dashboard on its
+first successful setup; later starts leave your saved workflows and publishing choices
+alone. If initialization is interrupted, the next startup retries it.
+
+After changing dashboard or custom-node source, run the startup command again to rebuild
+the image and recreate the affected container. Workflow JSON changes do not overwrite
+your saved n8n workflows; import the updated workflow in the editor, retain the lab's
+AITS credential and internal API URL, and publish the dashboard again when applicable.
+
+Run these commands from the checkout root to inspect or stop the lab. Stopping preserves
+the volumes; the startup command brings it back.
 
 ```shell
-docker compose -p aits-ledger-lab -f compose.yaml -f compose.browser.yaml up -d --build --wait
-docker compose -p aits-ledger-lab -f compose.yaml -f compose.browser.yaml ps
-```
-
-Check AITS readiness at `http://127.0.0.1:8000/ready` and open n8n at
-`http://localhost:5678`, or port 5679 if configured. Complete the n8n owner-account setup.
-The Compose mounts install the custom files and make the dashboard available at
-`/home/node/.n8n-files/ledger-dashboard/index.html` inside this n8n container.
-
-Retrieve the lab-generated service key for your dashboard connection. This command
-prints the key in your own terminal.
-
-```shell
-docker compose -p aits-ledger-lab -f compose.yaml -f compose.browser.yaml exec -T n8n cat /run/ledger/key
-```
-
-Import and publish `ledger-dashboard.json`, then import `issue-triage.json`. Configure
-the OpenAI credential as in section 7. The recorder can use the lab's `AITS_URL` and
-`AITS_KEY_FILE` environment settings automatically. If you select an explicit **AITS API**
-credential, use **Server URL** `http://aits:8000` and the lab-generated key. Explicit node
-credentials take precedence over environment settings.
-
-Set **Dashboard URL** and the Sticky Note link to `http://localhost:5679/webhook/ledger`
-when using host port 5679. Connect the dashboard with the lab-generated key and repeat
-the run, verification, and audit checks from section 8. HTTP Request nodes in this lab
-use `http://aits:8000` for their AITS URLs.
-
-The lab's separate Compose project owns its PostgreSQL, n8n, and key volumes. Dashboard
-rebuilds update the mounted file directly. Use both Compose filenames and the same
-project name for later `up`, `ps`, `logs`, and `stop` commands. Stop the lab as follows.
-
-```shell
-docker compose -p aits-ledger-lab -f compose.yaml -f compose.browser.yaml stop
+docker compose -f docs/tutorials/n8n-ledger-lab/compose.yaml ps
+docker compose -f docs/tutorials/n8n-ledger-lab/compose.yaml stop
 ```
 
 ## Troubleshooting
@@ -530,16 +607,18 @@ docker compose -p aits-ledger-lab -f compose.yaml -f compose.browser.yaml stop
 | Port or container name in use | Inspect `docker ps -a`. Use the existing matching service, or choose another host port and update affected URLs and CORS origins. |
 | n8n cannot reach AITS | For host-run AITS, use `http://host.docker.internal:8000` and start AITS with `--host 0.0.0.0`. In the all-in-one lab, use `http://aits:8000`. |
 | AITS returns HTTP 401 | Enter the secret portion of `name:secret` from the running AITS configuration. The all-in-one lab generates its own key. |
-| Unknown custom node or missing AITS API credential type | Verify both JavaScript files in the custom folder, restart n8n, and refresh the editor. For the lab, verify its custom-directory mount. |
+| Unknown custom node or missing AITS API credential type | Verify both JavaScript files in the custom folder, restart n8n, and refresh the editor. For the lab, rerun the startup command to rebuild its image. |
 | Recorder requests the full workflow | Clear pinned data and execute from Manual Trigger. Keep the supplied node names and the single text model-call shape. |
 | Model request fails | Check the OpenAI credential, account access, quota, and selected model in Triage model. |
 | Dashboard URL returns 404 | Publish Ledger Dashboard and check its webhook path `ledger`. Use the production URL. |
 | File error or webhook returns 500 | Inspect the serving workflow execution, built HTML, file node container path, and allowlist. Recopy the file after container recreation. |
 | Browser downloads the dashboard | Respond with binary field `data`, Content-Type `text/html; charset=utf-8`, and Content-Disposition `inline`. |
-| Dashboard connection fails | Check the browser API origin, API readiness, service key, CORS preflight, and `null` origin. Rebuild after changing the API URL. |
-| Dashboard displays Sample ledger | Connect AITS before comparing execution IDs or auditing live records. |
+| Webhook dashboard connection fails | Check Read AITS's URL expression, selected AITS API credential, and API readiness. Save and publish after configuration changes. |
+| Dashboard reports a rejected saved server credential | Update Service Key in the saved AITS API credential to match the running server's AUTH_SERVICE_KEYS secret. Reload the page. |
+| Standalone or preview dashboard connection fails | Check its API URL, service key, API readiness, and browser CORS origin. Rebuild after changing the API URL. |
+| Dashboard displays Sample ledger | Open the production webhook URL for automatic live data. Standalone and development modes use Connect AITS. |
 | Server does not support run search | Restart AITS from the checkout containing `app/routers/lineage_runs.py`. |
-| New run or page changes are missing | Refresh runs after recording. Rebuild and copy the HTML after source changes, reload the tab, and reconnect. |
+| New run or page changes are missing | Refresh runs after recording. Rebuild and copy the HTML after source changes, then reload the webhook tab. |
 | Audit reports failures | Inspect the reported record and failure details before using the result as verified evidence. |
 
 ### Git Bash path rewriting on Windows
@@ -560,12 +639,11 @@ inspect files inside the container. This was the path-conversion issue encounter
 during the Windows setup.
 
 For container diagnostics, run `docker logs --tail 100 n8n` in the primary setup. For the
-lab, use this command from the lab directory.
+lab, use this command from the checkout root.
 
 ```shell
-docker compose -p aits-ledger-lab -f compose.yaml -f compose.browser.yaml logs --tail 100 aits n8n
+docker compose -f docs/tutorials/n8n-ledger-lab/compose.yaml logs --tail 100 aits n8n
 ```
 
-The dashboard playbook includes the recorded local check, and the mapping note explains
-the current trace contract. [Dashboard playbook](n8n-dashboard-playbook.md),
-[n8n trace mapping](n8n-trace-mapping.md).
+The mapping note explains how the workflow execution and its model call become AITS
+records. [n8n trace mapping](n8n-trace-mapping.md).

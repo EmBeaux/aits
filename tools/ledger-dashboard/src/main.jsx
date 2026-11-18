@@ -26,6 +26,7 @@ import '@fontsource-variable/jetbrains-mono';
 import { readDemo } from './demo.js';
 import { AuditView, DutPanel, ErrorNotice, EvidenceDock } from './Evidence.jsx';
 import {
+  automaticConnection,
   dutRoute,
   hasRunFilters,
   initialFilters,
@@ -179,7 +180,7 @@ const LookupDialog = ({ close, open }) => {
 };
 
 const App = () => {
-  const [key, setKey] = useState('');
+  const [key, setKey] = useState(automaticConnection ? null : '');
   const [route, setRoute] = useState(readRoute);
   const [filters, setFilters] = useState(initialFilters);
   const [clock, setClock] = useState(Date.now);
@@ -191,10 +192,10 @@ const App = () => {
   const [workflowText] = useDebouncedValue(filters.workflow, 220);
   const [businessKey] = useDebouncedValue(filters.businessKey, 220);
   const desktop = useMediaQuery('(min-width: 881px)');
-  const demo = !key;
+  const demo = key === '';
   const client = useMemo(
-    () => (key ? (kind, id, signal) => readLedger(kind, id, key, signal) : readDemo),
-    [key],
+    () => (demo ? readDemo : (kind, id, signal) => readLedger(kind, id, key, signal)),
+    [demo, key],
   );
   const search = runSearch(
     { ...filters, q: searchText, workflow: workflowText, businessKey },
@@ -344,15 +345,17 @@ const App = () => {
             >
               {demo ? 'Sample ledger' : 'Connected to AITS'}
             </Badge>
-            <Button
-              className="connect-button"
-              onClick={connection.open}
-              variant={demo ? 'filled' : 'default'}
-              size="sm"
-              leftSection={<IconPlugConnected size={17} />}
-            >
-              {demo ? 'Connect AITS' : 'Connection'}
-            </Button>
+            {!automaticConnection && (
+              <Button
+                className="connect-button"
+                onClick={connection.open}
+                variant={demo ? 'filled' : 'default'}
+                size="sm"
+                leftSection={<IconPlugConnected size={17} />}
+              >
+                {demo ? 'Connect AITS' : 'Connection'}
+              </Button>
+            )}
           </div>
         </div>
       </header>

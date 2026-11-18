@@ -69,6 +69,276 @@
           }
         }
       }
+    },
+    {
+      "id": "dbe72c3e-6947-4714-94dc-8b26d7f48183",
+      "name": "Open ledger API",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "ledger-api",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "null"
+        }
+      },
+      "webhookId": "5feb2962-1db9-4a08-b6f2-156bbbefc4c5"
+    },
+    {
+      "id": "151b485a-1ee4-4cb7-aadf-ea702851f10d",
+      "name": "Validate ledger read",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "a0ddde5d-014e-4976-86c2-862342cadab6",
+              "leftValue": "={{ typeof $json.query?.path === 'string' ? $json.query.path : '' }}",
+              "rightValue": "^[^\\x00-\\x20\\\\#]{1,8192}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ]
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "notes": "Check that path is a string with no spaces, control characters, backslashes, or fragments."
+    },
+    {
+      "id": "d9efb4f6-b765-4f23-a934-de2c3feadf94",
+      "name": "Allowed ledger read",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "ccecb317-68e8-45ae-8aee-95d80c0a0069",
+              "leftValue": "={{ $json.query.path.split('?')[0] }}",
+              "rightValue": "^/lineage/$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "b116ed47-19c8-481f-afa2-1a59a5d5b758",
+              "leftValue": "={{ $json.query.path.split('?')[0] }}",
+              "rightValue": "^/lineage/runs/$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "027dcbe0-99b9-4b60-8dba-42bf945a9d84",
+              "leftValue": "={{ $json.query.path.split('?')[0] }}",
+              "rightValue": "^/lineage/[a-f0-9]{64}/$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "29258bbb-7573-4db2-9392-6ee1e6b900ab",
+              "leftValue": "={{ $json.query.path.split('?')[0] }}",
+              "rightValue": "^/lineage/nodes/[a-f0-9]{64}/$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "993ee354-5c4e-45ba-b4ba-5df7646e37ee",
+              "leftValue": "={{ $json.query.path.split('?')[0] }}",
+              "rightValue": "^/lineage/nodes/[a-f0-9]{64}/traceback/$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "0da718ce-558b-4df7-901f-a1487f37105b",
+              "leftValue": "={{ $json.query.path.split('?')[0] }}",
+              "rightValue": "^/duts/[a-f0-9]{64}/$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "d8188078-4b9e-49f1-98d9-d741ef84c01c",
+              "leftValue": "={{ $json.query.path.split('?')[0] }}",
+              "rightValue": "^/configs/[a-f0-9]{64}/$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "0155bad8-004a-4395-ba44-e0de43ae7385",
+              "leftValue": "={{ $json.query.path.split('?')[0] }}",
+              "rightValue": "^/verify/[a-f0-9]{64}/$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "add6c563-5fc7-4e7e-97c9-cdc0cf9b6f54",
+              "leftValue": "={{ $json.query.path.split('?')[0] }}",
+              "rightValue": "^/commits/$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "81bc3b86-1776-4762-9650-6d68b557e3cf",
+              "leftValue": "={{ $json.query.path.split('?')[0] }}",
+              "rightValue": "^/audit/$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ]
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "notes": "Each condition is one ledger endpoint used by the dashboard. Query parameters are passed through to AITS."
+    },
+    {
+      "id": "1033c1d9-14e1-4b05-8f34-ce78e408379c",
+      "name": "Read AITS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        240
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://host.docker.internal:8000' + $json.query.path }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "aitsApi",
+        "options": {
+          "timeout": 10000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "5857b239-02a2-49cd-a85e-0197ecf7dc1e",
+      "name": "Respond ledger data",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body ?? { detail: 'Could not reach AITS. Check the saved server connection.' } }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode ?? 502 }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "4b5e9609-e1fb-4094-a627-faff7057ee29",
+      "name": "Reject ledger read",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        720,
+        480
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"detail\":\"Ledger endpoint unavailable.\"}",
+        "options": {
+          "responseCode": 404,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "null"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "connections": {
@@ -93,10 +363,70 @@
           }
         ]
       ]
+    },
+    "Open ledger API": {
+      "main": [
+        [
+          {
+            "node": "Validate ledger read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate ledger read": {
+      "main": [
+        [
+          {
+            "node": "Allowed ledger read",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject ledger read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Allowed ledger read": {
+      "main": [
+        [
+          {
+            "node": "Read AITS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject ledger read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read AITS": {
+      "main": [
+        [
+          {
+            "node": "Respond ledger data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none"
   },
   "active": false
 }

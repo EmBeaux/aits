@@ -1,3 +1,5 @@
+name: aits-ledger-lab
+
 services:
   ledger-key:
     image: postgres:16-alpine
@@ -41,6 +43,8 @@ services:
         exec uvicorn app.main:app --host 0.0.0.0 --port 8000
     volumes:
       - ledger_key:/run/ledger:ro
+    ports:
+      - '127.0.0.1:${AITS_HOST_PORT:-8001}:8000'
     depends_on:
       ledger-key:
         condition: service_completed_successfully
@@ -53,24 +57,34 @@ services:
       retries: 30
 
   n8n:
-    image: docker.n8n.io/n8nio/n8n:2.47.4
+    build:
+      context: ${AITS_SOURCE:-../../..}
+      dockerfile: docs/tutorials/n8n-ledger-lab/Dockerfile
     environment:
       N8N_SECURE_COOKIE: 'false'
       N8N_CUSTOM_EXTENSIONS: /opt/aits-nodes
+      N8N_EDITOR_BASE_URL: http://localhost:${N8N_HOST_PORT:-5679}
+      WEBHOOK_URL: http://localhost:${N8N_HOST_PORT:-5679}/
       AITS_URL: http://aits:8000
       AITS_KEY_FILE: /run/ledger/key
+      AITS_DASHBOARD_URL: http://localhost:${N8N_HOST_PORT:-5679}/webhook/ledger
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: 'true'
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
     depends_on:
       aits:
         condition: service_healthy
     ports:
-      - '127.0.0.1:${N8N_HOST_PORT:-5678}:5678'
+      - '127.0.0.1:${N8N_HOST_PORT:-5679}:5678'
     volumes:
       - n8n_data:/home/node/.n8n
-      - ./custom:/opt/aits-nodes:ro
-      - ../../../tools/ledger-dashboard/dist:/home/node/.n8n-files/ledger-dashboard:ro
       - ledger_key:/run/ledger:ro
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:5678/healthz/readiness').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 120s
 
 volumes:
   postgres_data:

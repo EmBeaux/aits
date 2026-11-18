@@ -33,4 +33,8 @@ The execution ID identifies the workflow run. This spike captures the ordered st
 
 ## Verified example
 
-On November 17, 2026, workflow `UXmu2AR3S1i4ONtx`, execution **11**, recorded a root, four subsequent steps, and one model DUT. The terminal verification returned `valid: true`. The dashboard's full audit passed for **39 records and 44 ledger entries**. The [playbook](n8n-dashboard-playbook.md) contains the root and terminal CIDs and the steps to repeat the check.
+On November 17, 2026, workflow `UXmu2AR3S1i4ONtx`, execution **11**, recorded a root,
+four subsequent steps, and one model DUT. The terminal verification returned
+`valid: true`. The dashboard's full audit passed for **39 records and 44 ledger entries**.
+The [setup guide](your-first-n8n-ledger.md) explains how to repeat the check and retrieve
+the recorded CIDs from the workflow output.
