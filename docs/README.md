@@ -4,9 +4,8 @@ Choose a starting point based on what you need to do.
 
 | Need | Documentation |
 | --- | --- |
-| Start AITS, n8n, and Ledger Explorer with one Docker command | [All-in-one n8n lab](tutorials/your-first-n8n-ledger.md#run-the-all-in-one-docker-lab) |
 | Learn through a worked example | [Tutorial: Your first ledger](tutorials/your-first-ledger.md) |
-| Record and view a ledger from local n8n | [Tutorial: Your first n8n ledger](tutorials/your-first-n8n-ledger.md) |
+| Record and verify an execution trace from n8n | [Tutorial: Connect n8n to a live AITS server](tutorials/your-first-n8n-ledger.md) |
 | Update an existing integration to 0.3.0 | [How-to: Migrate to root-LT lineage](howto/migrate-to-root-lt-lineage.md) |
 | Record a call and lineage node atomically | [How-to: Record an inference and lineage node](howto/record-inline-dut.md) |
 | Look up lineage behavior | [Reference: Lineage API](reference/lineage.md) |

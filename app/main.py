@@ -9,7 +9,6 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
@@ -66,12 +65,6 @@ app = FastAPI(
 )
 
 app.add_middleware(BodyLimitMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=get_settings().cors_origins,
-    allow_methods=["GET"],
-    allow_headers=["Authorization"],
-)
 
 # Every resource router requires a service key; /health and the OpenAPI
 # documents stay open.

@@ -10,31 +10,6 @@ change to stored content is detectable against its retained CID. See
 `aits` is the reference implementation: a [FastAPI](https://fastapi.tiangolo.com/)
 service backed by Postgres, with a generated Python SDK.
 
-## Start the n8n lab
-
-Install and start Docker Desktop (Linux containers on Windows), then run this from the
-checkout root in Windows PowerShell or macOS Terminal:
-
-```shell
-docker compose -f docs/tutorials/n8n-ledger-lab/compose.yaml up --build -d --wait
-```
-
-This builds and starts AITS, PostgreSQL, and n8n, builds Ledger Explorer, installs the
-custom node, creates the shared AITS credential, imports both workflows, and publishes
-the dashboard. The first build takes longer while Docker downloads images and dependencies.
-
-- **n8n:** [localhost:5679](http://localhost:5679). Create your local owner account once.
-  Open **Issue triage ledger demo**, select your OpenAI credential in **Triage model**,
-  and execute the workflow.
-- **Ledger Explorer:** [localhost:5679/webhook/ledger](http://localhost:5679/webhook/ledger).
-  AITS connects automatically; the ledger starts empty until you record a run.
-- **AITS readiness:** [localhost:8001/ready](http://localhost:8001/ready).
-
-No host Python or Node.js installation is needed. Data and n8n settings persist in
-Docker volumes. Run the same command again to restart or rebuild the lab; existing
-workflow edits are preserved. See the [lab guide](docs/tutorials/your-first-n8n-ledger.md#run-the-all-in-one-docker-lab)
-for optional ports, OpenAI setup, updates, and stop commands.
-
 ## The data model
 
 The main objects are:
@@ -309,6 +284,7 @@ to demonstrate the integration.
 Start with the [documentation index](docs/README.md), organized by reader need:
 
 - [Tutorial: Your first ledger](docs/tutorials/your-first-ledger.md).
+- [Tutorial: Connect n8n to a live AITS server](docs/tutorials/your-first-n8n-ledger.md).
 - [How-to: Migrate to root-LT lineage](docs/howto/migrate-to-root-lt-lineage.md).
 - [How-to: Record an inference and lineage node](docs/howto/record-inline-dut.md).
 - [Reference: Lineage API](docs/reference/lineage.md) and [OpenAPI](openapi.json).

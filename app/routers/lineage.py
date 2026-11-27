@@ -12,10 +12,9 @@ inline DUT creation. Verification is the generic ``GET /verify/{cid}/``.
 """
 
 from datetime import datetime
-from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session
 
@@ -25,14 +24,6 @@ from ..models import DataUniqueTag, LineageTag
 from ..nodes import hex_cid_list
 from .common import MAX_ITEMS, Label, LongText, cid_from_hex, ensure_aware, get_agent_row
 from .duts import DUTCreate, DUTRead, build_dut_row
-from .lineage_runs import (
-    RunPage,
-    RunQuery,
-    RunSummary,
-    business_keys_by_dut,
-    search_runs,
-    summarize_run,
-)
 
 router = APIRouter(tags=["lineage"])
 
@@ -173,7 +164,6 @@ class LineageGraphRead(BaseModel):
     root: str = Field(description="CID of the root LT that identifies this graph")
     nodes: list[LineageRead]
     frontier: list[str]
-    run: RunSummary | None = Field(default=None, description="Included when include_run is true")
 
 
 class LineageGraphSummary(BaseModel):
@@ -312,16 +302,6 @@ def list_roots(session: SessionDep, limit: int = 100) -> list[LineageGraphSummar
         _raise_graph_error(exc, field="cid")
     summaries = [graph_summary(root, rows) for root, rows in grouped.items()]
     return sort_summaries(summaries)[:limit]
-
-
-@router.get("/lineage/runs/", response_model=RunPage)
-def list_runs(session: SessionDep, query: Annotated[RunQuery, Query()]) -> RunPage:
-    """Search recorded runs across the ledger before paging through the matches."""
-    try:
-        grouped = ledger.graphs_by_root(session)
-    except ledger.LineageGraphError as exc:
-        _raise_graph_error(exc, field="cid")
-    return search_runs(grouped, business_keys_by_dut(session), query)
 
 
 @router.post("/lineage/", response_model=LineageRead, status_code=status.HTTP_201_CREATED)
@@ -496,12 +476,8 @@ def create_lineage_node(
     )
 
 
-@router.get(
-    "/lineage/{root_cid}/", response_model=LineageGraphRead, response_model_exclude_unset=True
-)
-def get_lineage_graph(
-    root_cid: str, session: SessionDep, include_run: bool = False
-) -> LineageGraphRead:
+@router.get("/lineage/{root_cid}/", response_model=LineageGraphRead)
+def get_lineage_graph(root_cid: str, session: SessionDep) -> LineageGraphRead:
     root = _require_root(session, root_cid)
     try:
         grouped = ledger.graphs_by_root(session)
@@ -513,11 +489,8 @@ def get_lineage_graph(
             status_code=404, detail=f"Lineage node not found in root_cid: {root.hex()}"
         )
     root_hex = root.hex()
-    graph = LineageGraphRead(
+    return LineageGraphRead(
         root=root_hex,
         nodes=_ordered_nodes(root_hex, rows),
         frontier=hex_cid_list(ledger.graph_frontier(rows)),
     )
-    if include_run:
-        graph.run = summarize_run(root, rows, business_keys_by_dut(session, rows))
-    return graph

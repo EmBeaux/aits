@@ -42,14 +42,6 @@ def parse_service_keys(raw: str) -> dict[str, str]:
 class Settings(BaseSettings):
     """Process-wide config; instantiate via :func:`get_settings`."""
 
-    cors_origins: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Browser origins permitted to read AITS, including 'null' for local files "
-            "and sandboxed HTML."
-        ),
-    )
-
     database_url: str = Field(
         default="postgresql+psycopg://bastion:bastion@127.0.0.1:5432/bastion",
         description=(
