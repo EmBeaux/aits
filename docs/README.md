@@ -5,7 +5,7 @@ Choose a starting point based on what you need to do.
 | Need | Documentation |
 | --- | --- |
 | Learn through a worked example | [Tutorial: Your first ledger](tutorials/your-first-ledger.md) |
-| Record and verify an execution trace from n8n | [Tutorial: Connect n8n to a live AITS server](tutorials/your-first-n8n-ledger.md) |
+| Record and verify a workflow from n8n | [Tutorial: Record an n8n workflow in AITS](tutorials/record-an-n8n-workflow.md) |
 | Update an existing integration to 0.3.0 | [How-to: Migrate to root-LT lineage](howto/migrate-to-root-lt-lineage.md) |
 | Record a call and lineage node atomically | [How-to: Record an inference and lineage node](howto/record-inline-dut.md) |
 | Look up lineage behavior | [Reference: Lineage API](reference/lineage.md) |
