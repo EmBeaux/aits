@@ -284,6 +284,7 @@ to demonstrate the integration.
 Start with the [documentation index](docs/README.md), organized by reader need:
 
 - [Tutorial: Your first ledger](docs/tutorials/your-first-ledger.md).
+- [Tutorial: Connect n8n to a live AITS server](docs/tutorials/your-first-n8n-ledger.md).
 - [How-to: Migrate to root-LT lineage](docs/howto/migrate-to-root-lt-lineage.md).
 - [How-to: Record an inference and lineage node](docs/howto/record-inline-dut.md).
 - [Reference: Lineage API](docs/reference/lineage.md) and [OpenAPI](openapi.json).
